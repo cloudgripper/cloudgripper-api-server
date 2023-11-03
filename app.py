@@ -22,6 +22,7 @@ from resources.gcode import Gcode
 from resources.get_image_base import GetImageBase
 from resources.get_image_top import GetImageTop
 from resources.calibrate import Calibrate
+from resources.get_state import GetState
 from resources.register import Register
 from resources.login import Login
 from resources.streaming_output import StreamingOutput
