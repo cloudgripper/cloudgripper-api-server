@@ -14,6 +14,19 @@ cd ~/cloudgripper/
 git clone https://github.com/cloudgripper/cloudgripper-api-server.git
 ```
 
+### Creating and sourse virtual environment
+```
+python3 -m venv --system-site-packages .env
+source .env/bin/activate
+```
+
+### Install requirements
+```
+pip install -r requirements.txt
+sudo apt-get install -y python3-picamera2
+sudo apt-get install -y ffmpeg
+```
+
 ### Running the API server
 ```
 cd ~/cloudgripper/cloudgripper-api-server/
