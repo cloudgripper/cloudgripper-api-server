@@ -57,25 +57,38 @@ class Robot():
         self.teensy.write( ('T1' + '\n').encode('utf-8'))
         
     def grip_open_close(self, val):
+        self.gripper_angle = val
         self.teensy.write(('O'+str(val)+ '\n').encode('utf-8'))
     
     def grip_up_down(self, val):
+        self.gripper_z = val
         self.teensy.write(('P'+str(val)+ '\n').encode('utf-8'))
         
     def rotate(self,angle):
+        self.gripper_rotation = angle
         self.teensy.write(('R'+str(angle) + '\n').encode('utf-8'))
         
     def move_to(self,x,y):
+        self.x_position = float(x)
+        self.y_position = float(y)
         self.teensy.write( ('G00 X'+str(x)+' Y'+str(y) + '\n').encode('utf-8'))
     
-    def step_right(self):
-        self.teensy.write(('DD' + '\n').encode('utf-8'))
-    def step_left(self):
-        self.teensy.write(('LL' + '\n').encode('utf-8'))
-    def step_forward(self):
-        self.teensy.write(('FF' + '\n').encode('utf-8'))
-    def step_backward(self):
-        self.teensy.write(('BB' + '\n').encode('utf-8'))
+    def step_right(self, nudge_mm = 5):
+        self.x_position -= abs(nudge_mm)
+        self.move_to( self.x_position, self.y_position )
+
+    def step_left(self, nudge_mm = 5):
+        self.x_position += abs(nudge_mm)
+        self.move_to( self.x_position, self.y_position )
+
+    def step_forward(self, nudge_mm = 5):
+        self.y_position += abs(nudge_mm)
+        self.move_to( self.x_position, self.y_position )
+
+    def step_backward(self, nudge_mm = 5):
+        self.y_position -= abs(nudge_mm)
+        self.move_to( self.x_position, self.y_position )
+
     def get_image_from_base(self):
         ret, frame  = self.camera_base.read()
         if not ret:
