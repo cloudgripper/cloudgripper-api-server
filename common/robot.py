@@ -32,7 +32,27 @@ class Robot():
         time.sleep(5)
         
         print("Initialization Completed")
+        self.x_position = 0
+        self.y_position = 0
+        self.gripper_angle = 40
+        self.gripper_rotation = 0
+        self.gripper_z = 0
         
+    def get_state(self):
+
+        if self.gripper_angle>65:
+            # close
+            gripperval = 1
+        else:
+            # open
+            gripperval = 0
+        
+        z_pos = self.gripper_z
+        rot = self.gripper_rotation
+        x_state = round(self.x_position, 2)
+        y_state = round(self.y_position, 2)
+        return x_state, y_state, z_pos, rot, gripperval, time.time()
+
     def calibrate(self):
         self.teensy.write( ('T1' + '\n').encode('utf-8'))
         

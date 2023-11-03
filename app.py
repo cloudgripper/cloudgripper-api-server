@@ -85,6 +85,7 @@ api.add_resource(Gcode, '/api/v1.1/robot/gcode/<string:x>/<string:y>', resource_
 api.add_resource(Calibrate, '/api/v1.1/robot/calibrate', resource_class_kwargs={'robot': robot})
 api.add_resource(GetImageBase, '/api/v1.1/robot/getImageBase', resource_class_kwargs={'robot': robot})
 api.add_resource(GetImageTop, '/api/v1.1/robot/getImageTop', resource_class_kwargs={'robot': robot})
+api.add_resource(GetState, '/api/v1.1/robot/getState',resource_class_kwargs={'robot': robot})
 
 if __name__=="__main__":
     app.run(host='0.0.0.0')
