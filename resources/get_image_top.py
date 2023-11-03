@@ -14,7 +14,6 @@ class GetImageTop(Resource):
         if not ret:
             return {'error': 'Cannot read frame from webcam.'},404
             
-        encoded, buffer = cv2.imencode('.jpg', frame)
-        jpg_as_text = base64.b64encode(buffer)
+        jpg_as_text = base64.b64encode(frame)
         image_str = jpg_as_text.decode('latin1')
         return {'data': image_str}, 200

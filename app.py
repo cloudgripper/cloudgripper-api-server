@@ -1,6 +1,10 @@
 import serial
 import cv2
 import os
+from picamera2 import Picamera2
+from picamera2.encoders import JpegEncoder, Quality, MJPEGEncoder
+from picamera2.outputs import FileOutput
+from libcamera import controls
 from flask import Flask
 from flask_restful import Api
 from pymongo import MongoClient
@@ -20,6 +24,7 @@ from resources.get_image_top import GetImageTop
 from resources.calibrate import Calibrate
 from resources.register import Register
 from resources.login import Login
+from resources.streaming_output import StreamingOutput
 
 # Making a Connection with MongoClient
 mongoClientUsername = os.environ['MONGO_CLIENT_USERNAME']
@@ -41,12 +46,16 @@ camera_base.set(cv2.CAP_PROP_FRAME_WIDTH,320)
 camera_base.set(cv2.CAP_PROP_FRAME_HEIGHT,240)
 
 # Connect to top camera
-camera_top = cv2.VideoCapture("/dev/camtop0")
-if not camera_top.isOpened():
-    raise Exception("Cannot open camera on top")
-camera_top.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-camera_top.set(cv2.CAP_PROP_FRAME_WIDTH,320)
-camera_top.set(cv2.CAP_PROP_FRAME_HEIGHT,240)
+camera_top = None
+picam2 = Picamera2()
+config = picam2.create_video_configuration(main={"size": (1280, 720), "format": "RGB888"})
+picam2.configure(config)
+picam2.set_controls({"AfMode": controls.AfModeEnum.Continuous})
+picam2.set_controls({"Brightness": 0.05})
+picam2.set_controls({"Contrast": 1.1})
+picam2.set_controls({"Sharpness": 7})
+camera_top = StreamingOutput()
+picam2.start_recording(MJPEGEncoder(), FileOutput(camera_top), quality=Quality.HIGH)
 
 
 # Initiate Robot
@@ -73,7 +82,7 @@ api.add_resource(Rotate, '/api/v1.1/robot/rotate/<string:rotate_angle>', resourc
 api.add_resource(UpDown, '/api/v1.1/robot/up_down/<string:z_angle>', resource_class_kwargs={'robot': robot})
 api.add_resource(Gcode, '/api/v1.1/robot/gcode/<string:x>/<string:y>', resource_class_kwargs={'robot': robot})
 api.add_resource(Calibrate, '/api/v1.1/robot/calibrate', resource_class_kwargs={'robot': robot})
-api.add_resource(GetImageBase, '/api/v1.1/robot/getImage', resource_class_kwargs={'robot': robot})
+api.add_resource(GetImageBase, '/api/v1.1/robot/getImageBase', resource_class_kwargs={'robot': robot})
 api.add_resource(GetImageTop, '/api/v1.1/robot/getImageTop', resource_class_kwargs={'robot': robot})
 
 if __name__=="__main__":

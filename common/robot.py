@@ -67,12 +67,9 @@ class Robot():
                 self.camera_base.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         return ret, frame
     def get_image_from_top(self):
-        ret, frame = self.camera_top.read()
-        if not ret:
-            self.camera_top.release()
-            self.camera_top = cv2.VideoCapture("/dev/camtop0")
-            if not self.camera_top.isOpened():
-                print("Cannot open camera on top")
-            else:
-                self.camera_top.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        with self.camera_top.condition:
+            self.camera_top.condition.wait()
+            frame = self.camera_top.frame
+            frameTime = time.time()
+        ret = True
         return ret, frame
