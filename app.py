@@ -88,5 +88,5 @@ api.add_resource(GetImageTop, '/api/v1.1/robot/getImageTop', resource_class_kwar
 api.add_resource(GetState, '/api/v1.1/robot/getState',resource_class_kwargs={'robot': robot})
 
 if __name__=="__main__":
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', port=5000)
 

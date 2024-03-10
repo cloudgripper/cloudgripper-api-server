@@ -1,5 +1,4 @@
 from flask_restful import Resource
-from flask_jwt_extended import jwt_required
 import cv2
 import os
 import base64
@@ -8,7 +7,6 @@ class GetImageBase(Resource):
     def __init__(self, **kwargs):
         self.robot = kwargs['robot']
 
-    @jwt_required()
     def get(self):
         ret, frame = self.robot.get_image_from_base()
         if not ret:
