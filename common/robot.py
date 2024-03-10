@@ -1,8 +1,19 @@
 import time
 import cv2
+import numpy as np
+from resources.coordinate_normalizer import CoordinateNormalizer
+from resources.limit_workspace import LimitWorkspace
 
 class Robot():
-    def __init__(self, teensy, camera_base, camera_top):
+    def __init__(self, teensy, camera_base, camera_top, limits):
+        # Limit definitions
+        self.xmin, self.xmax, self.ymin, self.ymax = limits[0]
+        self.user_xmin, self.user_xmax, self.user_ymin, self.user_ymax = limits[1]
+
+        # Coordinate normalization and workspace limitation
+        self.xy_normalizer = CoordinateNormalizer(self.user_xmin, self.user_xmax, self.user_ymin, self.user_ymax)
+        self.boundaryUser = LimitWorkspace((0.0, 0.0), (1.0, 1.0))
+
         # setup camera and teensy
         self.camera_base = camera_base
         self.camera_top = camera_top

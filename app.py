@@ -65,7 +65,12 @@ picam2.start_recording(MJPEGEncoder(), FileOutput(camera_top), quality=Quality.V
 
 
 # Initiate Robot
-robot = Robot(teensy, camera_base, camera_top)
+xmin, xmax, ymin, ymax = -160.0, 0.0, 0.0, 220.0
+user_xmin, user_xmax, user_ymin, user_ymax = -150.0, -10.0, 10.0, 150.0
+limits_admin = [xmin, xmax, ymin, ymax]
+limits_user = [user_xmin, user_xmax, user_ymin, user_ymax]
+limits = [limits_admin, limits_user]
+robot = Robot(teensy, camera_base, camera_top, limits)
 # Flask object
 app = Flask(__name__)
 api = Api(app)
