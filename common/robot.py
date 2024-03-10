@@ -19,86 +19,65 @@ class Robot():
         self.camera_top = camera_top
         self.teensy = teensy
         self.teensy.flush()
-        # wake the teensy 
-        self.teensy.write("\r\n\r\n".encode('utf-8'))
-        # wait for to wake up
-        time.sleep(2)
-        # flush startup text
-        self.teensy.flushInput() 
-        # Clear the serial
-        for i in range(5) : self.teensy.readline()
+        self.wake_teensy()
 
-        # Initiailizing
-        print("Initiailizing")
-        print("- Caliberating")
-
-        self.grip_open_close(40)
-        time.sleep(1)
-        self.grip_up_down(10)
-        time.sleep(1)
-        self.rotate(0)
-        time.sleep(1)
+        # Robot State
+        self.x_position = 0
+        self.y_position = 0
+        self.nudge = 0.05
+        self.alpha = 0
 
         self.calibrate()
         time.sleep(5)
         
-        print("Initialization Completed")
-        self.x_position = 0
-        self.y_position = 0
-        self.gripper_angle = 40
-        self.gripper_rotation = 0
-        self.gripper_z = 0
-        
-    def get_state(self):
+        print("Calibrating...")
+        self.calibrate()
+        self.rotate(180)
+        self.move_to(0,0)
 
-        if self.gripper_angle>65:
-            # close
-            gripperval = 1
-        else:
-            # open
-            gripperval = 0
-        
-        z_pos = self.gripper_z
-        rot = self.gripper_rotation
-        x_state = round(self.x_position, 2)
-        y_state = round(self.y_position, 2)
-        return x_state, y_state, z_pos, rot, gripperval, time.time()
+    def wake_teensy(self):
+        self.teensy.flush()
+        self.teensy.write("\r\n\r\n".encode('utf-8'))
+        time.sleep(2)
+        self.teensy.flushInput()
+        for _ in range(5):
+            self.teensy.readline()
+        print("Teensy is awake.")
 
     def calibrate(self):
         self.teensy.write( ('T1' + '\n').encode('utf-8'))
         
     def grip_open_close(self, val):
-        self.gripper_angle = val
-        self.teensy.write(('O'+str(val)+ '\n').encode('utf-8'))
+        command_val = 90 - int(float(val)*90)
+        self.teensy.write(('O'+str(val) + '\n').encode('utf-8'))
     
     def grip_up_down(self, val):
-        self.gripper_z = val
-        self.teensy.write(('P'+str(val)+ '\n').encode('utf-8'))
+        command_val = 180 - int(float(val)*180)
+        self.teensy.write(('P'+str(val) + '\n').encode('utf-8'))
+
+    def rotate(self, angle):
+        command_val = 180 - angle
+        self.teensy.write(('R'+str(command_val) + '\n').encode('utf-8'))
         
-    def rotate(self,angle):
-        self.gripper_rotation = angle
-        self.teensy.write(('R'+str(angle) + '\n').encode('utf-8'))
-        
-    def move_to(self,x,y):
-        self.x_position = float(x)
-        self.y_position = float(y)
-        self.teensy.write( ('G00 X'+str(x)+' Y'+str(y) + '\n').encode('utf-8'))
-    
-    def step_right(self, nudge_mm = 5):
-        self.x_position -= abs(nudge_mm)
-        self.move_to( self.x_position, self.y_position )
+    def step_right(self):
+        self.x_position += self.nudge
+        self.move_to( self.x_position + self.nudge, self.y_position )
+        # self.teensy.write(('DD' + '\n').encode('utf-8'))
 
-    def step_left(self, nudge_mm = 5):
-        self.x_position += abs(nudge_mm)
-        self.move_to( self.x_position, self.y_position )
+    def step_left(self):
+        self.x_position -= self.nudge
+        self.move_to( self.x_position - self.nudge, self.y_position )
+        # self.teensy.write(('LL' + '\n').encode('utf-8'))
 
-    def step_forward(self, nudge_mm = 5):
-        self.y_position += abs(nudge_mm)
-        self.move_to( self.x_position, self.y_position )
+    def step_forward(self):
+        self.y_position += self.nudge
+        self.move_to( self.x_position, self.y_position + self.nudge )
+        # self.teensy.write(('FF' + '\n').encode('utf-8'))
 
-    def step_backward(self, nudge_mm = 5):
-        self.y_position -= abs(nudge_mm)
-        self.move_to( self.x_position, self.y_position )
+    def step_backward(self):
+        self.y_position -= self.nudge
+        self.move_to( self.x_position, self.y_position - self.nudge )
+        # self.teensy.write(('BB' + '\n').encode('utf-8'))
 
     def get_image_from_base(self):
         ret, frame = self.camera_base.read()
