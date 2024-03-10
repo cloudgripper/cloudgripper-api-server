@@ -6,4 +6,4 @@ class MoveLeft(Resource):
 
     def get(self):
         self.robot.step_left()
-        return {"move": "left"}, 200
+        return {"move": "left", "time": time.time()}, 200

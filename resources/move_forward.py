@@ -6,4 +6,4 @@ class MoveForward(Resource):
 
     def get(self):
         self.robot.step_forward()
-        return {"move": "forward"}, 200
+        return {"move": "forward", "time": time.time()}, 200

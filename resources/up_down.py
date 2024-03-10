@@ -5,5 +5,5 @@ class UpDown(Resource):
         self.robot = kwargs['robot']
 
     def get(self, z_angle):
-        self.robot.grip_up_down(int(z_angle))
-        return {"Up/Down to ": z_angle}, 200
+        self.robot.grip_up_down(z_angle)
+        return {"Up/Down to ": z_angle, "time": time.time()}, 200

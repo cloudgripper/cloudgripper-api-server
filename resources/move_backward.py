@@ -6,4 +6,4 @@ class MoveBackward(Resource):
 
     def get(self):
         self.robot.step_backward()
-        return {"move": "backward"}, 200
+        return {"move": "backward", "time": time.time()}, 200
