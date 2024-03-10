@@ -90,7 +90,7 @@ class Robot():
         self.move_to( self.x_position, self.y_position )
 
     def get_image_from_base(self):
-        ret, frame  = self.camera_base.read()
+        ret, frame = self.camera_base.read()
         if not ret:
             self.camera_base.release()
             self.camera_base = cv2.VideoCapture("/dev/camdown0")
@@ -98,11 +98,18 @@ class Robot():
                 print("Cannot open camera on base")
             else:
                 self.camera_base.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        return ret, frame
+            return False, None, None 
+        frame_time = time.time()
+        return ret, frame, frame_time
+
     def get_image_from_top(self):
-        with self.camera_top.condition:
-            self.camera_top.condition.wait()
-            frame = self.camera_top.frame
-            frameTime = time.time()
-        ret = True
-        return ret, frame
+        try:
+            with self.camera_top.condition:
+                self.camera_top.condition.wait()
+                frame = self.camera_top.frame
+            frame_time = time.time()
+            ret = True
+            return ret, frame, frame_time
+        except Exception as e:
+            print(f"Failed to get image from top camera: {e}")
+            return False, None, None  
