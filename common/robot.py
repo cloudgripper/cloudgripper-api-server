@@ -46,6 +46,41 @@ class Robot():
 
     def calibrate(self):
         self.teensy.write( ('T1' + '\n').encode('utf-8'))
+
+    def move_to(self, x, y):
+        if self.boundaryUser.check_limits(x,y):
+            x_mm, y_mm = self.xy_normalizer.xy_to_mm(x, y)
+            x_mm = max(min(float(x_mm), self.xmax), self.xmin)
+            y_mm = max(min(float(y_mm), self.ymax), self.ymin)
+            self.x_position, self.y_position = x, y
+            self.teensy.write(('G00 X'+str(x_mm)+' Y'+str(y_mm) + '\n').encode('utf-8'))
+        else:
+            print("Position out of bounds.")
+
+    def get_state(self):
+        #  x, y, z_angle, rotation_angle, claw_angle, z_current, rotation_current, claw_current, rotation_current
+        self.teensy.write(('S' + '\n').encode('utf-8'))
+        try:
+            response = self.teensy.readline().decode('utf-8').strip()
+            parts = response.split()
+            if parts[0] == "STATE" and len(parts) == 9:
+                x_raw, y_raw, z_angle, rotation_angle, claw_angle = map(float, parts[1:6])
+                x_norm = self.xy_normalizer.x_to_norm(x_raw)
+                y_norm = self.xy_normalizer.y_to_norm(y_raw)
+                z_norm = 1 - z_angle / 180.0
+                rotation = 180 - int(rotation_angle)
+                claw_norm = 1 - claw_angle / 90.0
+
+                z_current, rotation_current, claw_current = parts[6:9]
+                return {
+                    'x_norm': x_norm, 'y_norm': y_norm, 'z_norm': z_norm,
+                    'rotation': rotation, 'claw_norm': claw_norm,
+                    'z_current': z_current, 'rotation_current': rotation_current,
+                    'claw_current': claw_current
+                }, time.time()
+        except Exception as e:
+            print(f"Failed to read state: {e}")
+        return None
         
     def grip_open_close(self, val):
         command_val = 90 - int(float(val)*90)
