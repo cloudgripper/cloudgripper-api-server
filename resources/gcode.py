@@ -5,5 +5,5 @@ class Gcode(Resource):
         self.robot = kwargs['robot']
 
     def get(self, x, y):
-        self.robot.move_to(x,y)
+        self.robot.move_to(float(x),float(y))
         return {"gcode": "G00 X"+str(x)+" Y"+str(y)}, 200
