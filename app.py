@@ -39,28 +39,38 @@ users = db["Users"]
 teensy = serial.Serial('/dev/teensy', 9600, timeout=1)
 
 # Connect to base camera
-camera_base = cv2.VideoCapture("/dev/camdown0") # Original size: 640x480
-if not camera_base.isOpened():
-    raise Exception("Cannot open camera on base")
-camera_base.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-camera_base.set(cv2.CAP_PROP_FRAME_WIDTH,320)
-camera_base.set(cv2.CAP_PROP_FRAME_HEIGHT,240)
+try:
+    camera_base = cv2.VideoCapture("/dev/camdown0") # Original size: 640x480
+    if not camera_base.isOpened():
+        raise Exception("Cannot open camera on base")
+    camera_base.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    camera_base.set(cv2.CAP_PROP_FRAME_WIDTH,1280)
+    camera_base.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
+except Exception as e:
+    print(f"Failed to initialize bottom camera: {e}")
 
 # Connect to top camera
 camera_top = None
 picam2 = Picamera2()
 config = picam2.create_video_configuration(main={"size": (1280, 720), "format": "RGB888"})
 picam2.configure(config)
+picam2.set_controls({"AeEnable": True}) # Automatic camera gain nand exposure
+picam2.set_controls({"AwbEnable": True}) # Automatic white balance
 picam2.set_controls({"AfMode": controls.AfModeEnum.Continuous})
 picam2.set_controls({"Brightness": 0.05})
 picam2.set_controls({"Contrast": 1.1})
 picam2.set_controls({"Sharpness": 7})
 camera_top = StreamingOutput()
-picam2.start_recording(MJPEGEncoder(), FileOutput(camera_top), quality=Quality.HIGH)
+picam2.start_recording(MJPEGEncoder(), FileOutput(camera_top), quality=Quality.VERY_HIGH)
 
 
 # Initiate Robot
-robot = Robot(teensy, camera_base, camera_top)
+xmin, xmax, ymin, ymax = -160.0, 0.0, 0.0, 220.0
+user_xmin, user_xmax, user_ymin, user_ymax = -150.0, -10.0, 10.0, 150.0
+limits_admin = [xmin, xmax, ymin, ymax]
+limits_user = [user_xmin, user_xmax, user_ymin, user_ymax]
+limits = [limits_admin, limits_user]
+robot = Robot(teensy, camera_base, camera_top, limits)
 # Flask object
 app = Flask(__name__)
 api = Api(app)

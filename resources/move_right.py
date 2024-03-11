@@ -1,4 +1,5 @@
 from flask_restful import Resource
+import time
 
 class MoveRight(Resource):
     def __init__(self, **kwargs):
@@ -6,4 +7,4 @@ class MoveRight(Resource):
 
     def get(self):
         self.robot.step_right()
-        return {"move": "right"}, 200
+        return {"move": "right", "time": time.time()}, 200

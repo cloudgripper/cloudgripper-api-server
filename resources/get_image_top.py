@@ -8,10 +8,10 @@ class GetImageTop(Resource):
         self.robot = kwargs['robot']
 
     def get(self):
-        ret, frame = self.robot.get_image_from_top()
+        ret, frame, frame_time = self.robot.get_image_from_top()
         if not ret:
             return {'error': 'Cannot read frame from webcam.'},404
             
         jpg_as_text = base64.b64encode(frame)
         image_str = jpg_as_text.decode('latin1')
-        return {'data': image_str}, 200
+        return {'data': image_str, 'time': frame_time}, 200

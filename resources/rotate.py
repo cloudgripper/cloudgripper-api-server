@@ -1,4 +1,5 @@
 from flask_restful import Resource
+import time
 
 class Rotate(Resource):
     def __init__(self, **kwargs):
@@ -6,4 +7,4 @@ class Rotate(Resource):
 
     def get(self, rotate_angle):
         self.robot.rotate(int(rotate_angle))
-        return {"Rotate to ": rotate_angle}, 200
+        return {"Rotate to ": rotate_angle, "time": time.time()}, 200
