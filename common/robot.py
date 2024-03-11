@@ -84,11 +84,11 @@ class Robot():
         
     def grip_open_close(self, val):
         command_val = 90 - int(float(val)*90)
-        self.teensy.write(('O'+str(val) + '\n').encode('utf-8'))
+        self.teensy.write(('O'+str(command_val) + '\n').encode('utf-8'))
     
     def grip_up_down(self, val):
         command_val = 180 - int(float(val)*180)
-        self.teensy.write(('P'+str(val) + '\n').encode('utf-8'))
+        self.teensy.write(('P'+str(command_val) + '\n').encode('utf-8'))
 
     def rotate(self, angle):
         command_val = 180 - angle
