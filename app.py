@@ -36,9 +36,14 @@ db = client["api_database"]
 # collection
 users = db["Users"]
 # Connect to teensy
-teensy = serial.Serial('/dev/teensy', 9600, timeout=1)
+teensy = None
+try:
+    teensy = serial.Serial('/dev/teensy', 9600, timeout=1)
+except Exception as e:
+    print(f"Failed to initialize teensy")
 
 # Connect to base camera
+camera_base = None
 try:
     camera_base = cv2.VideoCapture("/dev/camdown0") # Original size: 640x480
     if not camera_base.isOpened():
