@@ -1,4 +1,5 @@
 from flask_restful import Resource
+import time
 
 class Gcode(Resource):
     def __init__(self, **kwargs):
@@ -6,4 +7,4 @@ class Gcode(Resource):
 
     def get(self, x, y):
         self.robot.move_to(float(x),float(y))
-        return {"gcode": "G00 X"+str(x)+" Y"+str(y)}, 200
+        return {"gcode": "G00 X"+str(x)+" Y"+str(y), "time": time.time()}, 200
