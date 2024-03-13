@@ -44,8 +44,8 @@ try:
     if not camera_base.isOpened():
         raise Exception("Cannot open camera on base")
     camera_base.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    camera_base.set(cv2.CAP_PROP_FRAME_WIDTH,1280)
-    camera_base.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
+    camera_base.set(cv2.CAP_PROP_FRAME_WIDTH,640)
+    camera_base.set(cv2.CAP_PROP_FRAME_HEIGHT,480)
 except Exception as e:
     print(f"Failed to initialize bottom camera: {e}")
 
