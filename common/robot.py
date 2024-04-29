@@ -1,8 +1,8 @@
 import time
-import cv2
 import numpy as np
 from resources.coordinate_normalizer import CoordinateNormalizer
 from resources.limit_workspace import LimitWorkspace
+from resources.video_capture import VideoCapture
 
 class Robot():
     def __init__(self, teensy, camera_base, camera_top, limits):
@@ -127,17 +127,16 @@ class Robot():
             print(f"Failed to send command to Teensy: {e}.")
 
     def get_image_from_base(self):
-        ret, frame = self.camera_base.read()
-        if not ret:
+        frame = self.camera_base.read()
+        if frame is None:
             self.camera_base.release()
-            self.camera_base = cv2.VideoCapture("/dev/camdown0")
-            if not self.camera_base.isOpened():
-                print("Cannot open camera on base")
-            else:
-                self.camera_base.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            try:
+                self.camera_base = VideoCapture("/dev/camdown0")
+            except Exception as e:
+                print(f"Cannot open camera on base")
             return False, None, None 
         frame_time = time.time()
-        return ret, frame, frame_time
+        return True, frame, frame_time
 
     def get_image_from_top(self):
         try:

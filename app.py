@@ -26,6 +26,7 @@ from resources.get_state import GetState
 from resources.register import Register
 from resources.login import Login
 from resources.streaming_output import StreamingOutput
+from resources.video_capture import VideoCapture
 
 # Making a Connection with MongoClient
 mongoClientUsername = os.environ['MONGO_CLIENT_USERNAME']
@@ -45,12 +46,7 @@ except Exception as e:
 # Connect to base camera
 camera_base = None
 try:
-    camera_base = cv2.VideoCapture("/dev/camdown0") # Original size: 640x480
-    if not camera_base.isOpened():
-        raise Exception("Cannot open camera on base")
-    camera_base.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    camera_base.set(cv2.CAP_PROP_FRAME_WIDTH,640)
-    camera_base.set(cv2.CAP_PROP_FRAME_HEIGHT,480)
+    camera_base = VideoCapture("/dev/camdown0") # Original size: 640x480
 except Exception as e:
     print(f"Failed to initialize bottom camera: {e}")
 
