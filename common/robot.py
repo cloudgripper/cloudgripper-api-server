@@ -101,22 +101,22 @@ class Robot():
         self.write_to_teensy('R'+str(command_val) + '\n')
         
     def step_right(self):
-        self.x_position += self.nudge
+        # self.x_position += self.nudge
         self.move_to( self.x_position + self.nudge, self.y_position )
         # self.teensy.write(('DD' + '\n').encode('utf-8'))
 
     def step_left(self):
-        self.x_position -= self.nudge
+        # self.x_position -= self.nudge
         self.move_to( self.x_position - self.nudge, self.y_position )
         # self.teensy.write(('LL' + '\n').encode('utf-8'))
 
     def step_forward(self):
-        self.y_position += self.nudge
+        # self.y_position += self.nudge
         self.move_to( self.x_position, self.y_position + self.nudge )
         # self.teensy.write(('FF' + '\n').encode('utf-8'))
 
     def step_backward(self):
-        self.y_position -= self.nudge
+        # self.y_position -= self.nudge
         self.move_to( self.x_position, self.y_position - self.nudge )
         # self.teensy.write(('BB' + '\n').encode('utf-8'))
 
