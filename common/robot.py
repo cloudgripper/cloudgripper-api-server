@@ -30,11 +30,11 @@ class Robot():
         self.nudge = 0.05
         self.alpha = 0
 
-        self.calibrate()
-        time.sleep(5)
+        # self.calibrate()
+        # time.sleep(5)
         
-        print("Calibrating...")
-        self.calibrate()
+        # print("Calibrating...")
+        # self.calibrate()
         self.rotate(180)
         self.move_to(0,0)
 
