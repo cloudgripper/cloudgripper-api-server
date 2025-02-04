@@ -21,6 +21,7 @@ from resources.up_down import UpDown
 from resources.gcode import Gcode
 from resources.get_image_base import GetImageBase
 from resources.get_image_top import GetImageTop
+from resources.get_all_states import GetAllStates
 from resources.calibrate import Calibrate
 from resources.get_state import GetState
 from resources.register import Register
@@ -96,6 +97,7 @@ api.add_resource(Gcode, '/api/v1.1/robot/gcode/<string:x>/<string:y>', resource_
 api.add_resource(Calibrate, '/api/v1.1/robot/calibrate', resource_class_kwargs={'robot': robot})
 api.add_resource(GetImageBase, '/api/v1.1/robot/getImageBase', resource_class_kwargs={'robot': robot})
 api.add_resource(GetImageTop, '/api/v1.1/robot/getImageTop', resource_class_kwargs={'robot': robot})
+api.add_resource(GetAllStates, '/api/v1.1/robot/getAllStates', resource_class_kwargs={'robot': robot})
 api.add_resource(GetState, '/api/v1.1/robot/getState',resource_class_kwargs={'robot': robot})
 
 if __name__=="__main__":
