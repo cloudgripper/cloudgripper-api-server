@@ -2,11 +2,13 @@ from flask_restful import Resource
 import cv2
 import os
 import base64
+from common.auth import restrict_in_tasks
 
 class GetAllStates(Resource):
     def __init__(self, **kwargs):
         self.robot = kwargs['robot']
 
+    @restrict_in_tasks(['planar_pushing'])
     def get(self):
         ret_top, frame_top, frame_time_top = self.robot.get_image_from_top()
         ret_base, frame_base, frame_time_base = self.robot.get_image_from_base()
