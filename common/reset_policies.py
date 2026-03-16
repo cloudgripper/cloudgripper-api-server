@@ -87,7 +87,7 @@ def _execute_generic_pushing_reset(robot, object_type):
     converter = _build_hand_eye_converter()
     obj_corners = OBJECT_CORNERS[object_type]
 
-    robot.grip_open_close(0)
+    robot.grip_open_close(1)
     time.sleep(0.5)
     robot.grip_up_down(0.3)
     time.sleep(1)
@@ -126,7 +126,7 @@ def _execute_generic_pushing_reset(robot, object_type):
 
     robot.move_to(robot_x, robot_y)
     time.sleep(3)
-    robot.grip_open_close(1)
+    robot.grip_open_close(0)
     time.sleep(0.5)
 
     drop_x = random.uniform(0.2, 0.8)
@@ -135,14 +135,14 @@ def _execute_generic_pushing_reset(robot, object_type):
     time.sleep(3)
     robot.rotate(int(random.uniform(0, 180)))
     time.sleep(1)
-    robot.grip_open_close(0)
+    robot.grip_open_close(1)
     time.sleep(0.5)
 
     away_x, away_y = _random_position_away_from(drop_x, drop_y)
     robot.move_to(away_x, away_y)
     time.sleep(3)
 
-    robot.grip_open_close(1)
+    robot.grip_open_close(0)
     time.sleep(0.5)
     robot.grip_up_down(0.1)
     robot.rotate(0)
