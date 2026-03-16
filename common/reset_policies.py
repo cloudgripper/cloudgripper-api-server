@@ -26,6 +26,19 @@ def _get_robot_number():
     return int(hostname.replace('cr', ''))
 
 
+def _get_robot_config():
+    """
+    Robot-specific reset policies configuration.
+    """
+    return {
+        'push_reset_z': float(os.environ.get('PUSH_RESET_Z', '0.3')),
+        'push_reset_grip_hold': float(os.environ.get('PUSH_RESET_GRIP_HOLD', '0')),
+        # T-shape specific configs
+        't_reset_z': float(os.environ.get('T_RESET_Z', '0')),
+        't_reset_grip_hold': float(os.environ.get('T_RESET_GRIP_HOLD', '0')),
+    }
+
+
 def _build_iou_evaluator():
     robot_num = _get_robot_number()
     camera_params_path = os.path.join(CALIBRATION_DIR, f'camera-params-cr{robot_num:02d}.yaml')
@@ -86,10 +99,11 @@ def _execute_generic_pushing_reset(robot, object_type):
     iou_evaluator = _build_iou_evaluator()
     converter = _build_hand_eye_converter()
     obj_corners = OBJECT_CORNERS[object_type]
+    config = _get_robot_config()
 
     robot.grip_open_close(1)
     time.sleep(0.5)
-    robot.grip_up_down(0.3)
+    robot.grip_up_down(config['push_reset_z'])
     time.sleep(1)
 
     ret, frame, _ = robot.get_image_from_base()
@@ -126,7 +140,7 @@ def _execute_generic_pushing_reset(robot, object_type):
 
     robot.move_to(robot_x, robot_y)
     time.sleep(3)
-    robot.grip_open_close(0)
+    robot.grip_open_close(config['push_reset_grip_hold'])
     time.sleep(0.5)
 
     drop_x = random.uniform(0.2, 0.8)
@@ -152,6 +166,7 @@ def _execute_generic_pushing_reset(robot, object_type):
 def _execute_t_pushing_reset(robot):
     iou_evaluator = _build_iou_evaluator()
     converter = _build_hand_eye_converter()
+    config = _get_robot_config()
 
     robot.grip_open_close(1)
     time.sleep(0.5)
@@ -193,9 +208,9 @@ def _execute_t_pushing_reset(robot):
     robot.move_to(robot_x, robot_y)
     time.sleep(3)
 
-    robot.grip_up_down(0)
+    robot.grip_up_down(config['t_reset_z'])
     time.sleep(1)
-    robot.grip_open_close(0)
+    robot.grip_open_close(config['t_reset_grip_hold'])
     time.sleep(0.5)
     robot.grip_up_down(0.40)
     time.sleep(0.5)
