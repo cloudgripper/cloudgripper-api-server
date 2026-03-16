@@ -28,6 +28,12 @@ from resources.register import Register
 from resources.login import Login
 from resources.streaming_output import StreamingOutput
 from resources.video_capture import VideoCapture
+from resources.get_image_base_undistorted import GetImageBaseUndistorted
+from resources.competition_reset import EnvironmentReset
+from resources.eval_start import EvalStart
+from resources.eval_target import EvalTarget
+from resources.eval_status import EvalStatus
+from common.evaluation import EvaluationManager
 
 # Making a Connection with MongoClient
 mongoClientUsername = os.environ['MONGO_CLIENT_USERNAME']
@@ -96,9 +102,16 @@ api.add_resource(UpDown, '/api/v1.1/robot/up_down/<string:z_angle>', resource_cl
 api.add_resource(Gcode, '/api/v1.1/robot/gcode/<string:x>/<string:y>', resource_class_kwargs={'robot': robot})
 api.add_resource(Calibrate, '/api/v1.1/robot/calibrate', resource_class_kwargs={'robot': robot})
 api.add_resource(GetImageBase, '/api/v1.1/robot/getImageBase', resource_class_kwargs={'robot': robot})
+api.add_resource(GetImageBaseUndistorted, '/api/v1.1/robot/getImageBaseUndistorted', resource_class_kwargs={'robot': robot})
 api.add_resource(GetImageTop, '/api/v1.1/robot/getImageTop', resource_class_kwargs={'robot': robot})
 api.add_resource(GetAllStates, '/api/v1.1/robot/getAllStates', resource_class_kwargs={'robot': robot})
 api.add_resource(GetState, '/api/v1.1/robot/getState',resource_class_kwargs={'robot': robot})
+api.add_resource(EnvironmentReset, '/api/v1.1/robot/env/reset', resource_class_kwargs={'robot': robot})
+
+eval_manager = EvaluationManager(robot)
+api.add_resource(EvalStart, '/api/v1.1/eval/start', resource_class_kwargs={'eval_manager': eval_manager})
+api.add_resource(EvalTarget, '/api/v1.1/eval/target', resource_class_kwargs={'eval_manager': eval_manager})
+api.add_resource(EvalStatus, '/api/v1.1/eval/status', resource_class_kwargs={'eval_manager': eval_manager})
 
 if __name__=="__main__":
     app.run(host='0.0.0.0', port=5000)

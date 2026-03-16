@@ -25,6 +25,10 @@ source .env/bin/activate
 pip install -r requirements.txt
 sudo apt-get install -y python3-picamera2
 sudo apt-get install -y ffmpeg
+
+git clone https://github.com/cloudgripper/rgmc_cloud_robotics_2026.git
+cd rgmc_cloud_robotics_2026
+pip install -e .
 ```
 
 ### Running the API server
