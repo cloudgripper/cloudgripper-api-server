@@ -110,6 +110,46 @@ class EvaluationManager:
                 },
             }, None
 
+    def get_object(self):
+        object_type = os.environ.get("RGMC_OBJECT_TYPE")
+        if object_type not in OBJECT_CORNERS:
+            return None, f"Invalid or missing object type: {object_type}"
+
+        obj_corners = OBJECT_CORNERS[object_type]
+
+        ret, frame, _ = self.robot.get_image_from_base()
+        if not ret or frame is None:
+            return None, "Failed to capture base camera image"
+
+        try:
+            iou_evaluator = _build_iou_evaluator()
+            dummy_target = iou_evaluator.generate_target_contour(
+                obj_corners, offset_from_center_mm=[0, 0], rotation_angle_rad=0
+            )
+            (
+                _,
+                _,
+                _,
+                _,
+                _,
+                obj_contour_undistorted,
+                *_,
+            ) = iou_evaluator.calculate_iou_from_distorted_base(
+                frame, dummy_target, obj_corners, debug=False
+            )
+        except Exception as e:
+            return None, f"Object detection failed: {e}"
+
+        obj_name = object_type.replace("_base", "")
+        return {
+            "object": obj_name,
+            "coordinate_space": "undistorted_pixel_2d",
+            "geometry": {
+                "type": "polygon",
+                "points": _contour_to_points(obj_contour_undistorted),
+            },
+        }, None
+
     def get_status(self):
         with self._lock:
             if not self.is_evaluating:

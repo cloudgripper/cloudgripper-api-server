@@ -135,10 +135,10 @@ def _execute_generic_pushing_reset(robot, object_type):
     robot_x, robot_y = converter.px_py_to_x_y(float(centroid[0]), float(centroid[1]))
     print(f"Centroid: {centroid}")
     print(f"Robot coordinates: {robot_x}, {robot_y}")
-    robot_x = float(np.clip(robot_x, 0, 1))
-    robot_y = float(np.clip(robot_y, 0, 1))
+    robot_x = float(np.clip(robot_x, -0.08, 1.08))
+    robot_y = float(np.clip(robot_y, -0.08, 1.5))
 
-    robot.move_to(robot_x, robot_y)
+    robot.move_to_admin(robot_x, robot_y)
     time.sleep(3)
     robot.grip_open_close(config['push_reset_grip_hold'])
     time.sleep(0.5)

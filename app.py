@@ -33,6 +33,7 @@ from resources.competition_reset import EnvironmentReset
 from resources.eval_start import EvalStart
 from resources.eval_target import EvalTarget
 from resources.eval_status import EvalStatus
+from resources.eval_object import EvalObject
 from common.evaluation import EvaluationManager
 
 # Making a Connection with MongoClient
@@ -112,6 +113,7 @@ eval_manager = EvaluationManager(robot)
 api.add_resource(EvalStart, '/api/v1.1/eval/start', resource_class_kwargs={'eval_manager': eval_manager})
 api.add_resource(EvalTarget, '/api/v1.1/eval/target', resource_class_kwargs={'eval_manager': eval_manager})
 api.add_resource(EvalStatus, '/api/v1.1/eval/status', resource_class_kwargs={'eval_manager': eval_manager})
+api.add_resource(EvalObject, '/api/v1.1/eval/object', resource_class_kwargs={'eval_manager': eval_manager})
 
 if __name__=="__main__":
     app.run(host='0.0.0.0', port=5000)
