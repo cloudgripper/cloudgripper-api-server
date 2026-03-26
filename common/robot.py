@@ -24,19 +24,13 @@ class Robot():
         except Exception as e:
             print(f"Failed to send command to Teensy: {e}")
 
-        # Robot State
-        self.x_position = 0
-        self.y_position = 0
+        # Initialization of Robot position
+        self.state, _ = self.get_state()
+        self.x_position = self.state['x_norm']
+        self.y_position = self.state['y_norm']
+        
         self.nudge = 0.05
         self.alpha = 0
-
-        # self.calibrate()
-        # time.sleep(5)
-        
-        # print("Calibrating...")
-        # self.calibrate()
-        self.rotate(180)
-        self.move_to(0,0)
 
     def wake_teensy(self):
         self.teensy.flush()
