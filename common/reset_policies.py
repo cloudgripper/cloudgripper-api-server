@@ -286,7 +286,7 @@ def execute_rope_reset(robot):
     rope_points, frame = _get_rope_points_with_retry(max_attempts=3)
 
     num_attempts = 0
-    max_attempts = 20
+    max_attempts = 3
     is_straight = False
 
     while not is_straight and num_attempts < max_attempts:
