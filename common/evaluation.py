@@ -4,6 +4,7 @@ import time
 import random
 import socket
 import threading
+from pathlib import Path
 import numpy as np
 from common.reset_policies import (
     _build_iou_evaluator,
@@ -11,7 +12,10 @@ from common.reset_policies import (
     _centroid_of_contour,
     OBJECT_CORNERS,
     execute_pushing_reset,
+    execute_rope_reset,
 )
+from common.rope_segmentation_util import RopeSegmentationUtil
+from common.rope_pca_sampler import RopePCASampler
 
 MAX_DURATION = 180
 SAMPLE_INTERVAL = 1.0
@@ -37,20 +41,30 @@ class EvaluationManager:
         self.is_evaluating = False
         self.is_resetting = False
         self.start_time = None
-        self.current_iou = 0.0
-        self.history = []       # list of {"t": float, "iou": float}
+        self.current_iou = 0.0    # Used for planar_pushing
+        self.current_score = 0.0  # Used for deformable_linear
+        self.history = []         # list of {"t": float, "iou"/"score": float}
         self.final_score = 0.0
 
         self._task_env = None
         self._object_type = None
         self._obj_corners = None
+        self._rope_points = None
         self._iou_evaluator = None
+        self._rope_evaluator = None
         self._target_contour = None
         self._target_points = None
+        self._target_rope_points = None
 
         self._thread = None
         self._stop_event = threading.Event()
 
+        self._rope_segmenter = RopeSegmentationUtil(robot_id=socket.gethostname().replace("cr", ""))
+        self._iou_evaluator = _build_iou_evaluator()
+
+        DATASET_DIR = Path(BASE_DIR) / "datasets"
+        self._rope_pca_sampler = RopePCASampler(robot_name=socket.gethostname().replace("cr", "robot"), dataset_dir=DATASET_DIR)
+        
     def start(self):
         with self._lock:
             if self.is_evaluating:
@@ -61,69 +75,128 @@ class EvaluationManager:
             self._task_env = os.environ.get("RGMC_TASK_ENV")
             self._object_type = os.environ.get("RGMC_OBJECT_TYPE")
 
-            if self._task_env != "planar_pushing":
+            if self._task_env == "planar_pushing":
+                if self._object_type not in OBJECT_CORNERS:
+                    return None, f"Invalid object type: {self._object_type}"
+                self._obj_corners = OBJECT_CORNERS[self._object_type]
+
+                target_contour, target_points = self._generate_target()
+
+
+                if target_contour is None:
+                    return None, "Failed to generate target: could not detect object"
+
+                self._target_contour = target_contour
+                self._target_points = target_points
+                self.start_time = time.time()
+                self.current_iou = 0.0
+                self.history = []
+                self.final_score = 0.0
+                self.is_evaluating = True
+
+                self._stop_event.clear()
+                self._thread = threading.Thread(target=self._score_loop, daemon=True)
+                self._thread.start()
+
+                return {
+                    "status": "Evaluation initialized",
+                    "max_duration_seconds": MAX_DURATION,
+                    "system_time_start": self.start_time,
+                }, None
+
+
+            elif self._task_env == "deformable_linear":
+                self._rope_points = None
+                self._rope_evaluator = None
+
+                target_rope_points = self._generate_target()
+
+                if target_rope_points is None:
+                    return None, "Failed to generate target: could not detect rope"
+
+                self._target_rope_points = target_rope_points
+                self.start_time = time.time()
+                self.current_score = 0.0
+                self.history = []
+                self.final_score = 0.0
+                self.is_evaluating = True
+
+                self._stop_event.clear()
+                self._thread = threading.Thread(target=self._score_loop, daemon=True)
+                self._thread.start()
+
+                return {
+                    "status": "Evaluation initialized",
+                    "max_duration_seconds": MAX_DURATION,
+                    "system_time_start": self.start_time,
+                }, None
+            else:
                 return None, f"Unsupported task environment: {self._task_env}"
-            if self._object_type not in OBJECT_CORNERS:
-                return None, f"Invalid object type: {self._object_type}"
-
-            self._obj_corners = OBJECT_CORNERS[self._object_type]
-            self._iou_evaluator = _build_iou_evaluator()
-
-        target_contour, target_points = self._generate_target()
-
-        with self._lock:
-            if target_contour is None:
-                return None, "Failed to generate target: could not detect object"
-
-            self._target_contour = target_contour
-            self._target_points = target_points
-            self.start_time = time.time()
-            self.current_iou = 0.0
-            self.history = []
-            self.final_score = 0.0
-            self.is_evaluating = True
-
-            self._stop_event.clear()
-            self._thread = threading.Thread(target=self._iou_loop, daemon=True)
-            self._thread.start()
-
-            return {
-                "status": "Evaluation initialized",
-                "max_duration_seconds": MAX_DURATION,
-                "system_time_start": self.start_time,
-            }, None
 
     def get_target(self):
         with self._lock:
-            if self._target_points is None:
-                return None, "No target available — start an evaluation first"
+            if self._task_env == "deformable_linear":
+                if self._target_rope_points is None:
+                    return None, "No target available — start an evaluation first"
+                return {
+                    "task": self._task_env,
+                    "target_object": "rope",
+                    "coordinate_space": "undistorted_pixel_2d",
+                    "geometry": {
+                        "type": "segmented_points",
+                        "points": self._target_rope_points.tolist() if isinstance(self._target_rope_points, np.ndarray) else self._target_rope_points,
+                    },
+                }, None
+            else:
+                if self._target_points is None:
+                    return None, "No target available — start an evaluation first"
 
-            obj_name = (self._object_type or "unknown").replace("_base", "")
+                obj_name = (self._object_type or "unknown").replace("_base", "")
+
+                return {
+                    "task": self._task_env,
+                    "target_object": obj_name,
+                    "coordinate_space": "undistorted_pixel_2d",
+                    "geometry": {
+                        "type": "polygon",
+                        "points": self._target_points,
+                    },
+                }, None
+
+    def get_object(self):
+        task_env = os.environ.get("RGMC_TASK_ENV")
+        object_type = os.environ.get("RGMC_OBJECT_TYPE")
+
+        ret, frame, _ = self.robot.get_image_from_base()
+        undistorted_frame = self._iou_evaluator.undistort_image(frame)
+
+        if not ret or frame is None:
+            return None, "Failed to capture base camera image"
+
+        if task_env == "deformable_linear":
+            try:
+                rope_points = self._rope_segmenter.get_rope_points(undistorted_frame)
+                if not rope_points:
+                    return None, "Rope detection failed: no rope points found"
+            except Exception as e:
+                return None, f"Rope detection failed: {e}"
 
             return {
-                "task": self._task_env,
-                "target_object": obj_name,
+                "object": "rope",
                 "coordinate_space": "undistorted_pixel_2d",
                 "geometry": {
-                    "type": "polygon",
-                    "points": self._target_points,
+                    "type": "segmented_points",
+                    "points": rope_points,
                 },
             }, None
 
-    def get_object(self):
-        object_type = os.environ.get("RGMC_OBJECT_TYPE")
         if object_type not in OBJECT_CORNERS:
             return None, f"Invalid or missing object type: {object_type}"
 
         obj_corners = OBJECT_CORNERS[object_type]
 
-        ret, frame, _ = self.robot.get_image_from_base()
-        if not ret or frame is None:
-            return None, "Failed to capture base camera image"
-
         try:
-            iou_evaluator = _build_iou_evaluator()
-            dummy_target = iou_evaluator.generate_target_contour(
+            dummy_target = self._iou_evaluator.generate_target_contour(
                 obj_corners, offset_from_center_mm=[0, 0], rotation_angle_rad=0
             )
             (
@@ -134,7 +207,7 @@ class EvaluationManager:
                 _,
                 obj_contour_undistorted,
                 *_,
-            ) = iou_evaluator.calculate_iou_from_distorted_base(
+            ) = self._iou_evaluator.calculate_iou_from_distorted_base(
                 frame, dummy_target, obj_corners, debug=False
             )
         except Exception as e:
@@ -152,6 +225,9 @@ class EvaluationManager:
 
     def get_status(self):
         with self._lock:
+            score_key = "current_iou" if self._task_env == "planar_pushing" else "current_score"
+            history_key = "iou_history" if self._task_env == "planar_pushing" else "score_history"
+
             if not self.is_evaluating:
                 if self.is_resetting:
                     return {
@@ -159,42 +235,57 @@ class EvaluationManager:
                         "message": "Environment is resetting.",
                     }, None
                 if self.start_time is not None:
-                    return {
+                    result = {
                         "status": "completed",
                         "final_score": round(self.final_score, 2),
-                        "iou_history": self.history,
                         "message": "Evaluation complete. Call /eval/start for a new run.",
-                    }, None
+                    }
+                    result[history_key] = self.history
+                    return result, None
                 return None, "No evaluation has been started"
 
             elapsed = time.time() - self.start_time
             if elapsed >= MAX_DURATION:
                 self._finish()
-                return {
+                result = {
                     "status": "completed",
                     "final_score": round(self.final_score, 2),
-                    "iou_history": self.history,
                     "message": "Environment resetting.",
-                }, None
+                }
+                result[history_key] = self.history
+                return result, None
 
-            return {
+            current_value = self.current_iou if self._task_env == "planar_pushing" else self.current_score
+            result = {
                 "status": "running",
                 "time_elapsed": round(elapsed, 1),
                 "time_remaining": round(MAX_DURATION - elapsed, 1),
-                "current_iou": round(self.current_iou, 1),
-            }, None
+            }
+            result[score_key] = round(current_value, 1)
+            return result, None
 
     def _generate_target(self):
-        """Pick a random target placement that:
-          - has a random orientation
-          - has its centroid within [0.2, 0.8] in normalized robot space
-          - has IoU with the current object below MAX_INITIAL_IOU
-        Retries up to 30 times before falling back to a fixed offset.
-        """
+        
         ret, frame, _ = self.robot.get_image_from_base()
+        undistorted_frame = self._iou_evaluator.undistort_image(frame)
+
         if not ret or frame is None:
             return None, None
 
+        if self._task_env == "planar_pushing":
+            return self._generate_target_planar_pushing(frame)
+        elif self._task_env == "deformable_linear":
+            return self._generate_target_deformable_linear(undistorted_frame)
+
+    def _generate_target_planar_pushing(self, frame):
+        """Generate target for planar_pushing task environment.
+
+            Pick a random target placement that:
+            - has a random orientation
+            - has its centroid within [0.2, 0.8] in normalized robot space
+            - has IoU with the current object below MAX_INITIAL_IOU
+            Retries up to 30 times before falling back to a fixed offset.
+        """
         converter = _build_hand_eye_converter()
 
         for _ in range(30):
@@ -241,8 +332,14 @@ class EvaluationManager:
             points = _contour_to_points(candidate)
         return candidate, points
 
+    def _generate_target_deformable_linear(self, frame):
+        rope_points, _ = self._rope_pca_sampler.sample_y_gt_zero()
+        if rope_points is None or len(rope_points) == 0:
+            return None
+        return rope_points
 
-    def _iou_loop(self):
+    def _score_loop(self):
+        """Background loop for calculating and tracking score during evaluation."""
         while not self._stop_event.is_set():
             if time.time() - self.start_time >= MAX_DURATION:
                 with self._lock:
@@ -252,35 +349,87 @@ class EvaluationManager:
 
             try:
                 ret, frame, _ = self.robot.get_image_from_base()
+                undistorted_frame = self._iou_evaluator.undistort_image(frame)
+
                 if not ret or frame is None:
                     self._stop_event.wait(SAMPLE_INTERVAL)
                     continue
 
-                result = self._iou_evaluator.calculate_iou_from_distorted_base(
-                    frame, self._target_contour, self._obj_corners, debug=False
-                )
-                iou = float(result[0])
-                t = round(time.time() - self.start_time, 2)
-                with self._lock:
-                    self.current_iou = iou
-                    self.history.append({"t": t, "iou": round(iou, 2)})
+                if self._task_env == "planar_pushing":
+                    result = self._iou_evaluator.calculate_iou_from_distorted_base(
+                        frame, self._target_contour, self._obj_corners, debug=False
+                    )
+                    score = float(result[0])
+                    with self._lock:
+                        self.current_iou = score
+                        self.history.append({"t": round(time.time() - self.start_time, 2), "iou": round(score, 2)})
+                elif self._task_env == "deformable_linear":
+                    self._rope_points = self._rope_segmenter.get_rope_points(undistorted_frame)
+                    if self._rope_points is not None and len(self._rope_points) > 0:
+                        score = self._calculate_rope_score(self._rope_points, self._target_rope_points)
+                    else:
+                        score = 0.0
+                    with self._lock:
+                        self.current_score = score
+                        self.history.append({"t": round(time.time() - self.start_time, 2), "score": round(score, 2)})
+                else:
+                    score = 0.0
+                    with self._lock:
+                        self.current_iou = score
+                        self.history.append({"t": round(time.time() - self.start_time, 2), "iou": round(score, 2)})
+
             except Exception as e:
-                print(f"IoU background error: {e}")
+                print(f"Score background error: {e}")
 
             self._stop_event.wait(SAMPLE_INTERVAL)
 
+    def _calculate_rope_score(self, current_points, target_points):
+        """Calculate rope alignment score using RMSE.
+
+        Score = max(0, 1 - E / 220), where E is the RMSE of the aligned rope points.
+        """
+        if current_points is None or target_points is None:
+            return 0.0
+        if len(current_points) == 0 or len(target_points) == 0:
+            return 0.0
+
+        current = np.array(current_points)
+        target = np.array(target_points)
+
+        n_current = len(current)
+        n_target = len(target)
+
+        if n_current == 0 or n_target == 0:
+            return 0.0
+
+        n_points = min(n_current, n_target)
+        current = current[:n_points]
+        target = target[:n_points]
+
+        mse = np.mean(np.sum((current - target) ** 2, axis=1))
+        rmse = np.sqrt(mse)
+
+        score = max(0.0, 1.0 - rmse / 220.0)
+        return float(score)
+
     def _finish(self):
-        """Compute integral score, flip state, and kick off environment reset.
+        """Compute final score, flip state, and kick off environment reset.
         Caller must hold self._lock.  Idempotent — safe to call more than once."""
         if not self.is_evaluating:
             return
         self.is_evaluating = False
         self._stop_event.set()
 
-        if len(self.history) >= 2:
-            ts = np.array([p["t"] for p in self.history])
-            ious = np.array([p["iou"] for p in self.history])
-            self.final_score = float(np.trapz(ious, ts))
+        if len(self.history) >= 1:
+            if self._task_env == "planar_pushing":
+                # Integral of IoU over time for pushing task
+                ts = np.array([p["t"] for p in self.history])
+                scores = np.array([p.get("iou", 0) for p in self.history])
+                self.final_score = float(np.trapz(scores, ts))
+            else:
+                # Latest score for rope task (deformable_linear)
+                last_entry = self.history[-1]
+                self.final_score = float(last_entry["score"])
         else:
             self.final_score = 0.0
 
@@ -290,7 +439,7 @@ class EvaluationManager:
         threading.Thread(target=self._reset, daemon=True).start()
 
     def _save_run(self):
-        """Persist the completed run's score and IoU history to a JSON file.
+        """Persist the completed run's score and history to a JSON file.
         Caller must hold self._lock."""
         try:
             robot_id = socket.gethostname()
@@ -298,6 +447,7 @@ class EvaluationManager:
             filename = f"{robot_id}_{self._object_type}_{start_str}.json"
             filepath = os.path.join(EVAL_LOGS_DIR, filename)
 
+            history_key = "iou_history" if self._task_env == "planar_pushing" else "score_history"
             payload = {
                 "robot_id": robot_id,
                 "task_env": self._task_env,
@@ -305,7 +455,7 @@ class EvaluationManager:
                 "start_time": self.start_time,
                 "duration_seconds": round(self.history[-1]["t"], 2) if self.history else 0,
                 "final_score": round(self.final_score, 2),
-                "iou_history": self.history,
+                history_key: self.history,
             }
 
             with open(filepath, "w") as f:
@@ -317,7 +467,10 @@ class EvaluationManager:
 
     def _reset(self):
         try:
-            execute_pushing_reset(self.robot, self._object_type)
+            if self._task_env == "planar_pushing":
+                execute_pushing_reset(self.robot, self._object_type)
+            elif self._task_env == "deformable_linear":
+                execute_rope_reset(self.robot)
         except Exception as e:
             print(f"Post-evaluation reset failed: {e}")
         finally:

@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 from resources.hand_eye_converter import HandEyeConverter
 from rgmc_cloud_robotics_2026 import PushingTaskIOU_Calculator
+from common.rope_segmentation_util import RopeSegmentationUtil
 from rgmc_cloud_robotics_2026.shapes import (
     SQUARE_CORNERS, CIRCLE_CORNERS, T_CORNERS,
     T_TOTAL_WIDTH_MM, T_THICKNESS_MM,
@@ -247,4 +248,169 @@ def execute_pushing_reset(robot, object_type):
 
 
 def execute_rope_reset(robot):
-    raise NotImplementedError("Rope reset policy is not yet implemented.")
+    iou_evaluator = _build_iou_evaluator()
+
+    converter = _build_hand_eye_converter()
+    robot_id = socket.gethostname().replace("cr", "")
+    rope_segmenter = RopeSegmentationUtil(robot_id=robot_id)
+
+    robot.grip_open_close(1)
+    time.sleep(0.25)
+    robot.grip_up_down(1)
+    time.sleep(0.25)
+    robot.rotate(0)
+    time.sleep(0.25)
+
+    def _get_rope_points_with_retry(max_attempts=3):
+        """Get rope points with retry logic - capture new image and retry if detection fails."""
+        for attempt in range(max_attempts):
+            ret, frame, _ = robot.get_image_from_base()
+            if not ret or frame is None:
+                if attempt < max_attempts - 1:
+                    time.sleep(0.5)
+                    continue
+                else:
+                    raise RuntimeError("Failed to capture base camera image.")
+
+            undistorted_frame = iou_evaluator.undistort_image(frame)
+            points = rope_segmenter.get_rope_points(undistorted_frame)
+
+            if points:
+                return points, undistorted_frame
+            else:
+                if attempt < max_attempts - 1:
+                    time.sleep(0.5)
+
+        raise RuntimeError("Failed to detect rope points after 3 attempts.")
+
+    rope_points, frame = _get_rope_points_with_retry(max_attempts=3)
+
+    num_attempts = 0
+    max_attempts = 20
+    is_straight = False
+
+    while not is_straight and num_attempts < max_attempts:
+        xmin_rope, xmax_rope = detect_rope_base(converter, rope_points)
+
+        is_straight = check_if_rope_is_straight(rope_points, threshold=0.6)
+        num_attempts += 1
+
+        if num_attempts >= 2 and not is_straight:
+            reset_helper(robot, converter, rope_points)
+            num_attempts = 0
+
+            try:
+                rope_points, frame = _get_rope_points_with_retry(max_attempts=3)
+            except RuntimeError as e:
+                raise RuntimeError("Failed to detect rope points after helper reset.") from e
+
+        if xmin_rope is None or xmax_rope is None or xmin_rope < 0.3 or xmax_rope > 0.7:
+            continue
+
+        reset_rope(robot, xmax_rope, xmin_rope)
+
+        try:
+            rope_points, frame = _get_rope_points_with_retry(max_attempts=3)
+            is_straight = check_if_rope_is_straight(rope_points, threshold=0.6)
+        except RuntimeError as e:
+            # Continue to next iteration since rope_points is still set from before
+            pass
+
+    if not is_straight:
+        pass
+
+    # Move robot to random position after resetting
+    robot.move_to(0.5, 0.9)
+    time.sleep(1.5)
+    random_x = random.uniform(0.0, 1.0)
+    random_y = random.uniform(0.85, 1.0)
+    robot.move_to(random_x, random_y)
+    time.sleep(1.5)
+
+
+def reset_rope(robot, xmax_rope, xmin_rope):
+    robot.grip_open_close(0.9)
+    time.sleep(0.25)
+    robot.grip_up_down(1)
+    time.sleep(0.25)
+    robot.move_to(0.625, 0)
+    time.sleep(1.7)
+    robot.grip_open_close(0)
+    time.sleep(0.25)
+    robot.grip_up_down(0)
+    time.sleep(0.25)
+    robot.move_to(xmax_rope, 0)
+    time.sleep(1.7)
+    robot.move_to(xmax_rope, 0.71)
+    time.sleep(1.7)
+    robot.grip_up_down(1)
+    time.sleep(0.25)
+    robot.move_to(0.275, 0)
+    time.sleep(1.7)
+    robot.grip_up_down(0)
+    time.sleep(0.25)
+    robot.move_to(xmin_rope, 0)
+    time.sleep(1.7)
+    robot.move_to(xmin_rope, 0.71)
+    time.sleep(1.7)
+    robot.move_to(0.4, 0.7)
+    time.sleep(1.7)
+
+
+def check_if_rope_is_straight(rope_points, threshold=0.6):
+    if not rope_points or len(rope_points) < 2:
+        return False
+
+    converter = _build_hand_eye_converter()
+
+    tip1_px = (rope_points[0][0], rope_points[0][1])
+    tip2_px = (rope_points[-1][0], rope_points[-1][1])
+
+    tip1 = converter.px_py_to_x_y(tip1_px[0], tip1_px[1])
+    tip2 = converter.px_py_to_x_y(tip2_px[0], tip2_px[1])
+
+    is_straight = (
+        (tip1[1] >= threshold or tip2[1] >= threshold)
+        and 0.4 <= tip1[0] <= 0.6
+        and 0.4 <= tip2[0] <= 0.6
+    )
+    return is_straight
+
+def detect_rope_base(converter, rope_points):
+    if not rope_points:
+        return None, None
+
+    rope_base_x, rope_base_y = converter.px_py_to_x_y(rope_points[-1][0], rope_points[-1][1])
+
+    xmin_rope = rope_base_x - 0.08
+    xmax_rope = rope_base_x + 0.08
+
+    return xmin_rope, xmax_rope
+
+def reset_helper(robot, converter, rope_points):
+    if not rope_points or len(rope_points) < 7:
+        print("Warning: Not enough rope points for reset helper")
+        return
+
+    robot.grip_up_down(1)
+    time.sleep(0.25)
+    robot.grip_open_close(0.9)
+    time.sleep(0.25)
+
+    # Sample a pick node
+    pick_node_idx = random.randint(3, 6)
+
+    tip_px = rope_points[pick_node_idx]
+    tip_robot = converter.px_py_to_x_y(tip_px[0], tip_px[1])
+
+    tip_robot = np.clip(np.array(tip_robot), [0.0, 0.0], [1.0, 1.0])
+    robot.move_to(tip_robot[0], tip_robot[1])
+    time.sleep(1.7)
+
+    robot.grip_up_down(0.02)
+    time.sleep(0.25)
+    robot.grip_open_close(0.05)
+    time.sleep(0.25)
+
+    robot.move_to(0.5, 0.5)
+    time.sleep(1.7)
