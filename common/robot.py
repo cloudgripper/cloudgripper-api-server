@@ -51,13 +51,20 @@ class Robot():
     def calibrate(self):
         self.write_to_teensy('T1' + '\n')
 
-    def move_to(self, x, y):
+    def move_to(self, x, y, block=False, tolerance=0.02, timeout=10.0):
         if self.boundaryUser.check_limits(x,y):
             x_mm, y_mm = self.xy_normalizer.xy_to_mm(x, y)
             x_mm = max(min(float(x_mm), self.xmax), self.xmin)
             y_mm = max(min(float(y_mm), self.ymax), self.ymin)
             self.x_position, self.y_position = x, y
             self.write_to_teensy('G00 X'+str(x_mm)+' Y'+str(y_mm) + '\n')
+            if block:
+                deadline = time.time() + timeout
+                while time.time() < deadline:
+                    state, _ = self.get_state()
+                    if state and abs(state['x_norm'] - x) <= tolerance and abs(state['y_norm'] - y) <= tolerance:
+                        break
+                    time.sleep(0.05)
             return x_mm, y_mm
         else:
             print("Position out of bounds.")
