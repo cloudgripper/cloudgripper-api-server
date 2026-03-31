@@ -97,6 +97,7 @@ class RopeSegmentationUtil:
         self,
         image: np.ndarray,
         number_of_points: Optional[int] = None,
+        limit_rope_length: bool = True,
     ) -> List[Tuple[int, int]]:
         if image is None or image.size == 0:
             return []
@@ -153,7 +154,7 @@ class RopeSegmentationUtil:
         length_px = self._polyline_length(rope_points)
         if not np.isfinite(length_px):
             return []
-        if length_px < LOWER_KEEP_THRESHOLD or length_px > UPPER_KEEP_THRESHOLD:
+        if limit_rope_length and (length_px < LOWER_KEEP_THRESHOLD or length_px > UPPER_KEEP_THRESHOLD):
             return []
 
         # Ensure points are ordered so the point with highest px is at the end

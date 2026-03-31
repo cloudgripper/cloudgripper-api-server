@@ -273,7 +273,7 @@ def execute_rope_reset(robot):
                     raise RuntimeError("Failed to capture base camera image.")
 
             undistorted_frame = iou_evaluator.undistort_image(frame)
-            points = rope_segmenter.get_rope_points(undistorted_frame)
+            points = rope_segmenter.get_rope_points(undistorted_frame, limit_rope_length=False)
 
             if points:
                 return points, undistorted_frame

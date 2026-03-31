@@ -32,6 +32,10 @@ class Robot():
         self.nudge = 0.05
         self.alpha = 0
 
+        if self.x_position < 0 or self.x_position > 1 or self.y_position < 0 or self.y_position > 1:
+            # move to 0.5,0.5
+            self.move_to(0.5, 0.5)
+
     def wake_teensy(self):
         self.teensy.flush()
         self.write_to_teensy("\r\n\r\n")
