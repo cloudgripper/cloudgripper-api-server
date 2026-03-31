@@ -27,8 +27,8 @@ robot_rope_hsv_range = {
         "upper": np.array([146, 126, 255]),
     },
     "14": {
-        "lower": np.array([95, 21, 40]),
-        "upper": np.array([146, 126, 255]),
+        "lower": np.array([102, 24, 65]),
+        "upper": np.array([132, 129, 255]),
     },
     "15": {
         "lower": np.array([95, 21, 40]),
@@ -47,8 +47,8 @@ robot_rope_hsv_range = {
         "upper": np.array([146, 126, 255]),
     },
     "22": {
-        "lower": np.array([95, 21, 40]),
-        "upper": np.array([146, 126, 255]),
+        "lower": np.array([102, 33, 57]),
+        "upper": np.array([179, 109, 255]),
     },
     "23": {
         "lower": np.array([95, 21, 40]),
