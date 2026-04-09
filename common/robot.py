@@ -153,6 +153,18 @@ class Robot():
         frame_time = time.time()
         return True, frame, frame_time
 
+    def get_jpeg_from_base(self):
+        """Return pre-encoded JPEG bytes and timestamp from the camera thread."""
+        jpeg_bytes, frame_time = self.camera_base.read_jpeg()
+        if jpeg_bytes is None:
+            self.camera_base.release()
+            try:
+                self.camera_base = VideoCapture("/dev/camdown0")
+            except Exception as e:
+                print(f"Cannot open camera on base")
+            return False, None, None
+        return True, jpeg_bytes, frame_time
+
     def get_image_from_top(self):
         try:
             with self.camera_top.condition:

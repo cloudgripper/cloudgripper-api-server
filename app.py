@@ -35,6 +35,8 @@ from resources.eval_target import EvalTarget
 from resources.eval_status import EvalStatus
 from resources.eval_object import EvalObject
 from common.evaluation import EvaluationManager
+from flask_sock import Sock
+from resources.websocket_handler import register as register_websocket
 
 # Making a Connection with MongoClient
 mongoClientUsername = os.environ['MONGO_CLIENT_USERNAME']
@@ -83,12 +85,14 @@ robot = Robot(teensy, camera_base, camera_top, limits)
 # Flask object
 app = Flask(__name__)
 api = Api(app)
+sock = Sock(app)
 #  JWT manager
 jwt = JWTManager(app)
 # JWT Config
 app.config["JWT_SECRET_KEY"] = os.environ['JWT_SECRET_KEY']
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False
 app.config['PROPAGATE_EXCEPTIONS'] = True
+app.config['SOCK_SERVER_OPTIONS'] = {'ping_interval': 25, 'max_message_size': 16 * 1024 * 1024}
 
 
 api.add_resource(Login, '/api/v1.1/robot/login', resource_class_kwargs={'users': users, 'app':app})
@@ -114,6 +118,8 @@ api.add_resource(EvalStart, '/api/v1.1/eval/start', resource_class_kwargs={'eval
 api.add_resource(EvalTarget, '/api/v1.1/eval/target', resource_class_kwargs={'eval_manager': eval_manager})
 api.add_resource(EvalStatus, '/api/v1.1/eval/status', resource_class_kwargs={'eval_manager': eval_manager})
 api.add_resource(EvalObject, '/api/v1.1/eval/object', resource_class_kwargs={'eval_manager': eval_manager})
+
+register_websocket(sock, robot, app)
 
 if __name__=="__main__":
     app.run(host='0.0.0.0', port=5000)
