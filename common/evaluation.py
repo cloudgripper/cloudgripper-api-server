@@ -63,7 +63,11 @@ class EvaluationManager:
         self._iou_evaluator = _build_iou_evaluator()
 
         DATASET_DIR = Path(BASE_DIR) / "datasets"
-        self._rope_pca_sampler = RopePCASampler(robot_name=socket.gethostname().replace("cr", "robot"), dataset_dir=DATASET_DIR)
+        try:
+            self._rope_pca_sampler = RopePCASampler(robot_name=socket.gethostname().replace("cr", "robot"), dataset_dir=DATASET_DIR)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"RopePCASampler unavailable (deformable_linear task will be disabled): {e}")
+            self._rope_pca_sampler = None
         
     def start(self):
         with self._lock:
@@ -333,6 +337,8 @@ class EvaluationManager:
         return candidate, points
 
     def _generate_target_deformable_linear(self, frame):
+        if self._rope_pca_sampler is None:
+            return None
         rope_points, _ = self._rope_pca_sampler.sample_y_gt_zero()
         if rope_points is None or len(rope_points) == 0:
             return None
