@@ -122,5 +122,5 @@ api.add_resource(EvalObject, '/api/v1.1/eval/object', resource_class_kwargs={'ev
 register_websocket(sock, robot, app)
 
 if __name__=="__main__":
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, threaded=True)
 

@@ -1,4 +1,5 @@
 import time
+import threading
 import numpy as np
 from resources.coordinate_normalizer import CoordinateNormalizer
 from resources.limit_workspace import LimitWorkspace
@@ -15,6 +16,7 @@ class Robot():
         self.boundaryUser = LimitWorkspace((0.0, 0.0), (1.0, 1.0))
 
         # setup camera and teensy
+        self._teensy_lock = threading.Lock()
         self.camera_base = camera_base
         self.camera_top = camera_top
         try:
@@ -49,7 +51,8 @@ class Robot():
             print(f"Failed to send command to Teensy: {e}")
 
     def calibrate(self):
-        self.write_to_teensy('T1' + '\n')
+        with self._teensy_lock:
+            self.write_to_teensy('T1' + '\n')
 
     def move_to(self, x, y, block=False, tolerance=0.02, timeout=10.0):
         if self.boundaryUser.check_limits(x,y):
@@ -57,7 +60,8 @@ class Robot():
             x_mm = max(min(float(x_mm), self.xmax), self.xmin)
             y_mm = max(min(float(y_mm), self.ymax), self.ymin)
             self.x_position, self.y_position = x, y
-            self.write_to_teensy('G00 X'+str(x_mm)+' Y'+str(y_mm) + '\n')
+            with self._teensy_lock:
+                self.write_to_teensy('G00 X'+str(x_mm)+' Y'+str(y_mm) + '\n')
             if block:
                 deadline = time.time() + timeout
                 while time.time() < deadline:
@@ -75,45 +79,49 @@ class Robot():
         x_mm = max(min(float(x_mm), self.xmax), self.xmin)
         y_mm = max(min(float(y_mm), self.ymax), self.ymin)
         self.x_position, self.y_position = x, y
-        self.write_to_teensy('G00 X'+str(x_mm)+' Y'+str(y_mm) + '\n')
+        with self._teensy_lock:
+            self.write_to_teensy('G00 X'+str(x_mm)+' Y'+str(y_mm) + '\n')
         return x_mm, y_mm
 
     def get_state(self):
-        #  x, y, z_angle, rotation_angle, claw_angle, z_current, rotation_current, claw_current, rotation_current
-        self.write_to_teensy('S' + '\n')
-        try:
-            response = self.teensy.readline().decode('utf-8').strip()
-            parts = response.split()
-            if parts[0] == "STATE" and len(parts) == 9:
-                x_raw, y_raw, z_angle, rotation_angle, claw_angle = map(float, parts[1:6])
-                x_norm = self.xy_normalizer.x_to_norm(x_raw)
-                y_norm = self.xy_normalizer.y_to_norm(y_raw)
-                z_norm = 1 - z_angle / 180.0
-                rotation = 180 - int(rotation_angle)
-                claw_norm = 1 - claw_angle / 90.0
+        with self._teensy_lock:
+            self.write_to_teensy('S' + '\n')
+            try:
+                response = self.teensy.readline().decode('utf-8').strip()
+                parts = response.split()
+                if parts[0] == "STATE" and len(parts) == 9:
+                    x_raw, y_raw, z_angle, rotation_angle, claw_angle = map(float, parts[1:6])
+                    x_norm = self.xy_normalizer.x_to_norm(x_raw)
+                    y_norm = self.xy_normalizer.y_to_norm(y_raw)
+                    z_norm = 1 - z_angle / 180.0
+                    rotation = 180 - int(rotation_angle)
+                    claw_norm = 1 - claw_angle / 90.0
 
-                z_current, rotation_current, claw_current = parts[6:9]
-                return {
-                    'x_norm': x_norm, 'y_norm': y_norm, 'z_norm': z_norm,
-                    'rotation': rotation, 'claw_norm': claw_norm,
-                    'z_current': z_current, 'rotation_current': rotation_current,
-                    'claw_current': claw_current
-                }, time.time()
-        except Exception as e:
-            print(f"Failed to read state: {e}")
-        return None
+                    z_current, rotation_current, claw_current = parts[6:9]
+                    return {
+                        'x_norm': x_norm, 'y_norm': y_norm, 'z_norm': z_norm,
+                        'rotation': rotation, 'claw_norm': claw_norm,
+                        'z_current': z_current, 'rotation_current': rotation_current,
+                        'claw_current': claw_current
+                    }, time.time()
+            except Exception as e:
+                print(f"Failed to read state: {e}")
+            return None
         
     def grip_open_close(self, val):
         command_val = 90 - int(float(val)*90)
-        self.write_to_teensy('O'+str(command_val) + '\n')
+        with self._teensy_lock:
+            self.write_to_teensy('O'+str(command_val) + '\n')
     
     def grip_up_down(self, val):
         command_val = 180 - int(float(val)*180)
-        self.write_to_teensy('P'+str(command_val) + '\n')
+        with self._teensy_lock:
+            self.write_to_teensy('P'+str(command_val) + '\n')
 
     def rotate(self, angle):
         command_val = 180 - angle
-        self.write_to_teensy('R'+str(command_val) + '\n')
+        with self._teensy_lock:
+            self.write_to_teensy('R'+str(command_val) + '\n')
         
     def step_right(self):
         # self.x_position += self.nudge
