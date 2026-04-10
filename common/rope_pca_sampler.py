@@ -107,6 +107,12 @@ class RopePCASampler:
         # PCA files go in the same directory as poses
         pca_file = poses_dir / f"{robot_name}_rope_pca.npy"
 
+        if not poses_file.exists():
+            raise FileNotFoundError(
+                f"Rope pose file not found: {poses_file}. "
+                f"Please provide the dataset at {poses_file}"
+            )
+
         # Generate PCA if it doesn't exist or if loading fails
         need_generation = not pca_file.exists()
 
