@@ -106,7 +106,7 @@ class Robot():
                     }, time.time()
             except Exception as e:
                 print(f"Failed to read state: {e}")
-            return None
+            return None, None
         
     def grip_open_close(self, val):
         command_val = 90 - int(float(val)*90)
@@ -175,12 +175,18 @@ class Robot():
 
     def get_image_from_top(self):
         try:
-            with self.camera_top.condition:
-                self.camera_top.condition.wait()
-                frame = self.camera_top.frame
-            frame_time = time.time()
-            ret = True
-            return ret, frame, frame_time
+            initial_seq = self.camera_top.frame_seq
+            deadline = time.time() + 2.0
+            while time.time() < deadline:
+                if self.camera_top.frame_seq != initial_seq:
+                    frame = self.camera_top.frame
+                    if frame is not None:
+                        return True, frame, time.time()
+                time.sleep(0.015)
+            frame = self.camera_top.frame
+            if frame is not None:
+                return True, frame, time.time()
+            return False, None, None
         except Exception as e:
             print(f"Failed to get image from top camera: {e}")
-            return False, None, None  
+            return False, None, None

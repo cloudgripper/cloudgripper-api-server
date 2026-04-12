@@ -92,7 +92,7 @@ jwt = JWTManager(app)
 app.config["JWT_SECRET_KEY"] = os.environ['JWT_SECRET_KEY']
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False
 app.config['PROPAGATE_EXCEPTIONS'] = True
-app.config['SOCK_SERVER_OPTIONS'] = {'ping_interval': 25, 'max_message_size': 16 * 1024 * 1024}
+app.config['SOCK_SERVER_OPTIONS'] = {'max_message_size': 16 * 1024 * 1024}
 
 
 api.add_resource(Login, '/api/v1.1/robot/login', resource_class_kwargs={'users': users, 'app':app})
