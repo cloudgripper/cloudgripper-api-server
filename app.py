@@ -119,7 +119,7 @@ api.add_resource(EvalTarget, '/api/v1.1/eval/target', resource_class_kwargs={'ev
 api.add_resource(EvalStatus, '/api/v1.1/eval/status', resource_class_kwargs={'eval_manager': eval_manager})
 api.add_resource(EvalObject, '/api/v1.1/eval/object', resource_class_kwargs={'eval_manager': eval_manager})
 
-register_websocket(sock, robot, app)
+register_websocket(sock, robot, app, eval_manager)
 
 if __name__=="__main__":
     app.run(host='0.0.0.0', port=5000, threaded=True)

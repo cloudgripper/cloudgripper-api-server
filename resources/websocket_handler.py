@@ -9,6 +9,7 @@ from flask import request
 
 
 _iou_evaluator = None
+_eval_manager = None
 
 
 def restrict_in_tasks(restricted_tasks):
@@ -179,6 +180,56 @@ def handle_up_down(robot, ws, msg, is_admin):
 
 
 # ---------------------------------------------------------------------------
+# Evaluation handlers (JSON response)
+# ---------------------------------------------------------------------------
+
+def _get_eval_manager():
+    """Get the eval_manager from the closure. Must be called from within a handler."""
+    # eval_manager is passed via the register function's closure
+    return _eval_manager
+
+
+def handle_eval_start(robot, ws, msg, is_admin):
+    eval_manager = _get_eval_manager()
+    if eval_manager is None:
+        return _send_json(ws, {'action': 'evalStart', 'error': 'Evaluation manager not available'})
+    result, error = eval_manager.start()
+    if error:
+        return _send_json(ws, {'action': 'evalStart', 'error': error})
+    _send_json(ws, {'action': 'evalStart', 'result': result, 'time': time.time()})
+
+
+def handle_eval_target(robot, ws, msg, is_admin):
+    eval_manager = _get_eval_manager()
+    if eval_manager is None:
+        return _send_json(ws, {'action': 'evalTarget', 'error': 'Evaluation manager not available'})
+    result, error = eval_manager.get_target()
+    if error:
+        return _send_json(ws, {'action': 'evalTarget', 'error': error})
+    _send_json(ws, {'action': 'evalTarget', 'result': result, 'time': time.time()})
+
+
+def handle_eval_status(robot, ws, msg, is_admin):
+    eval_manager = _get_eval_manager()
+    if eval_manager is None:
+        return _send_json(ws, {'action': 'evalStatus', 'error': 'Evaluation manager not available'})
+    result, error = eval_manager.get_status()
+    if error:
+        return _send_json(ws, {'action': 'evalStatus', 'error': error})
+    _send_json(ws, {'action': 'evalStatus', 'result': result, 'time': time.time()})
+
+
+def handle_eval_object(robot, ws, msg, is_admin):
+    eval_manager = _get_eval_manager()
+    if eval_manager is None:
+        return _send_json(ws, {'action': 'evalObject', 'error': 'Evaluation manager not available'})
+    result, error = eval_manager.get_object()
+    if error:
+        return _send_json(ws, {'action': 'evalObject', 'error': error})
+    _send_json(ws, {'action': 'evalObject', 'result': result, 'time': time.time()})
+
+
+# ---------------------------------------------------------------------------
 # Calibrate & environment reset (JSON response)
 # ---------------------------------------------------------------------------
 
@@ -226,6 +277,10 @@ ACTION_HANDLERS = {
     'upDown': handle_up_down,
     'calibrate': handle_calibrate,
     'envReset': handle_env_reset,
+    'evalStart': handle_eval_start,
+    'evalTarget': handle_eval_target,
+    'evalStatus': handle_eval_status,
+    'evalObject': handle_eval_object,
 }
 
 
@@ -246,10 +301,11 @@ def _verify_jwt(app):
         return False
 
 
-def register(sock, robot, app):
-    global _iou_evaluator
+def register(sock, robot, app, eval_manager=None):
+    global _iou_evaluator, _eval_manager
     from common.reset_policies import _build_iou_evaluator
     _iou_evaluator = _build_iou_evaluator()
+    _eval_manager = eval_manager
 
     @sock.route('/api/v1.1/robot/ws')
     def websocket_handler(ws):
