@@ -6,6 +6,8 @@ import socket
 import threading
 from pathlib import Path
 import numpy as np
+import gevent
+from gevent.threadpool import ThreadPool as _GeventThreadPool
 from common.reset_policies import (
     _build_iou_evaluator,
     _build_hand_eye_converter,
@@ -20,6 +22,8 @@ from common.rope_pca_sampler import RopePCASampler
 MAX_DURATION = 180
 SAMPLE_INTERVAL = 1.0
 MAX_INITIAL_IOU = 15.0
+
+_SCORE_POOL = _GeventThreadPool(maxsize=2)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EVAL_LOGS_DIR = os.path.join(BASE_DIR, "eval_logs")
@@ -57,6 +61,7 @@ class EvaluationManager:
         self._target_rope_points = None
 
         self._thread = None
+        self._score_async = None
         self._stop_event = threading.Event()
 
         self._rope_segmenter = RopeSegmentationUtil(robot_id=socket.gethostname().replace("cr", ""))
@@ -99,8 +104,11 @@ class EvaluationManager:
                 self.is_evaluating = True
 
                 self._stop_event.clear()
-                self._thread = threading.Thread(target=self._score_loop, daemon=True)
-                self._thread.start()
+
+                self._score_async = _SCORE_POOL.spawn(self._score_loop)
+                self._thread = None
+
+                gevent.spawn_later(MAX_DURATION + 0.5, self._finish_if_expired)
 
                 return {
                     "status": "Evaluation initialized",
@@ -126,8 +134,9 @@ class EvaluationManager:
                 self.is_evaluating = True
 
                 self._stop_event.clear()
-                self._thread = threading.Thread(target=self._score_loop, daemon=True)
-                self._thread.start()
+                self._score_async = _SCORE_POOL.spawn(self._score_loop)
+                self._thread = None
+                gevent.spawn_later(MAX_DURATION + 0.5, self._finish_if_expired)
 
                 return {
                     "status": "Evaluation initialized",
@@ -348,9 +357,6 @@ class EvaluationManager:
         """Background loop for calculating and tracking score during evaluation."""
         while not self._stop_event.is_set():
             if time.time() - self.start_time >= MAX_DURATION:
-                with self._lock:
-                    if self.is_evaluating:
-                        self._finish()
                 return
 
             try:
@@ -418,6 +424,15 @@ class EvaluationManager:
         score = max(0.0, 1.0 - rmse / 220.0)
         return float(score)
 
+    def _finish_if_expired(self):
+        """Hub-side fallback finaliser. Called by a gevent.spawn_later timer
+        scheduled in start(), so it always runs on the main hub. Idempotent:
+        does nothing if the eval has already been finalised by get_status()."""
+        with self._lock:
+            if self.is_evaluating and self.start_time is not None and \
+                    (time.time() - self.start_time) >= MAX_DURATION:
+                self._finish()
+
     def _finish(self):
         """Compute final score, flip state, and kick off environment reset.
         Caller must hold self._lock.  Idempotent — safe to call more than once."""
@@ -442,6 +457,7 @@ class EvaluationManager:
         self._save_run()
 
         self.is_resetting = True
+
         threading.Thread(target=self._reset, daemon=True).start()
 
     def _save_run(self):
