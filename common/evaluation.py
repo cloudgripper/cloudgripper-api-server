@@ -456,9 +456,9 @@ class EvaluationManager:
 
         self._save_run()
 
-        self.is_resetting = True
+        # self.is_resetting = True
 
-        threading.Thread(target=self._reset, daemon=True).start()
+        # threading.Thread(target=self._reset, daemon=True).start()
 
     def _save_run(self):
         """Persist the completed run's score and history to a JSON file.
