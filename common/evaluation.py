@@ -22,6 +22,7 @@ from common.rope_pca_sampler import RopePCASampler
 MAX_DURATION = 180
 SAMPLE_INTERVAL = 1.0
 MAX_INITIAL_IOU = 0.0
+MAX_INITIAL_ROPE_SCORE = 0.2
 
 _SCORE_POOL = _GeventThreadPool(maxsize=2)
 
@@ -346,12 +347,35 @@ class EvaluationManager:
         return candidate, points
 
     def _generate_target_deformable_linear(self, frame):
+        """Generate target for deformable_linear task environment.
+
+        Pick a random target rope configuration that:
+        - comes from the PCA-sampled dataset
+        - has a score below MAX_INITIAL_ROPE_SCORE vs the current rope
+          (i.e. is sufficiently different from the current state)
+        Retries up to 30 times before falling back to the last valid sample.
+        """
         if self._rope_pca_sampler is None:
             return None
-        rope_points, _ = self._rope_pca_sampler.sample_y_gt_zero()
-        if rope_points is None or len(rope_points) == 0:
-            return None
-        return rope_points
+
+        current_rope_points = self._rope_segmenter.get_rope_points(frame)
+
+        last_sample = None
+        for _ in range(30):
+            rope_points, _ = self._rope_pca_sampler.sample_y_gt_zero()
+            if rope_points is None or len(rope_points) == 0:
+                continue
+
+            last_sample = rope_points
+
+            if not current_rope_points or len(current_rope_points) == 0:
+                return rope_points
+
+            score = self._calculate_rope_score(current_rope_points, rope_points)
+            if score < MAX_INITIAL_ROPE_SCORE:
+                return rope_points
+
+        return last_sample
 
     def _score_loop(self):
         """Background loop for calculating and tracking score during evaluation."""
