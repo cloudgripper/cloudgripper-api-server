@@ -21,7 +21,7 @@ from common.rope_pca_sampler import RopePCASampler
 
 MAX_DURATION = 180
 SAMPLE_INTERVAL = 1.0
-MAX_INITIAL_IOU = 15.0
+MAX_INITIAL_IOU = 0.0
 
 _SCORE_POOL = _GeventThreadPool(maxsize=2)
 
