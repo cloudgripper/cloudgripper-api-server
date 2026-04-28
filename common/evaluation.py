@@ -302,7 +302,7 @@ class EvaluationManager:
         """
         converter = _build_hand_eye_converter()
 
-        for _ in range(30):
+        for _ in range(50):
             offset_x = random.uniform(-80, 80)
             offset_y = random.uniform(-80, 80)
             rotation_rad = random.uniform(0, 2 * np.pi)
