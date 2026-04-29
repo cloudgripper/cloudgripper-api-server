@@ -330,7 +330,7 @@ class EvaluationManager:
 
             score = result[0]
             target_contour_undistorted = result[6]
-            if score < MAX_INITIAL_IOU:
+            if score <= MAX_INITIAL_IOU:
                 return candidate, _contour_to_points(target_contour_undistorted)
 
         # Fallback: fixed offset, no rotation
