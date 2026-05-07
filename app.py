@@ -72,7 +72,7 @@ picam2.set_controls({"Brightness": 0.05})
 picam2.set_controls({"Contrast": 1.1})
 picam2.set_controls({"Sharpness": 7})
 camera_top = StreamingOutput()
-picam2.start_recording(MJPEGEncoder(), FileOutput(camera_top), quality=Quality.VERY_HIGH)
+picam2.start_recording(MJPEGEncoder(), FileOutput(camera_top), quality=Quality.HIGH)
 
 
 # Initiate Robot
