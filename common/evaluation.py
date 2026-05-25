@@ -109,8 +109,6 @@ class EvaluationManager:
                 self._score_async = _SCORE_POOL.spawn(self._score_loop)
                 self._thread = None
 
-                gevent.spawn_later(MAX_DURATION + 0.5, self._finish_if_expired)
-
                 return {
                     "status": "Evaluation initialized",
                     "max_duration_seconds": MAX_DURATION,
@@ -137,7 +135,6 @@ class EvaluationManager:
                 self._stop_event.clear()
                 self._score_async = _SCORE_POOL.spawn(self._score_loop)
                 self._thread = None
-                gevent.spawn_later(MAX_DURATION + 0.5, self._finish_if_expired)
 
                 return {
                     "status": "Evaluation initialized",
@@ -381,6 +378,8 @@ class EvaluationManager:
         """Background loop for calculating and tracking score during evaluation."""
         while not self._stop_event.is_set():
             if time.time() - self.start_time >= MAX_DURATION:
+                with self._lock:
+                    self._finish()
                 return
 
             try:
@@ -447,15 +446,6 @@ class EvaluationManager:
 
         score = max(0.0, 1.0 - rmse / 220.0)
         return float(score)
-
-    def _finish_if_expired(self):
-        """Hub-side fallback finaliser. Called by a gevent.spawn_later timer
-        scheduled in start(), so it always runs on the main hub. Idempotent:
-        does nothing if the eval has already been finalised by get_status()."""
-        with self._lock:
-            if self.is_evaluating and self.start_time is not None and \
-                    (time.time() - self.start_time) >= MAX_DURATION:
-                self._finish()
 
     def _finish(self):
         """Compute final score, flip state, and kick off environment reset.
