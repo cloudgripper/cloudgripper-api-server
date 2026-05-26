@@ -11,7 +11,7 @@ import skimage.morphology
 from scipy.interpolate import splprep, splev
 
 LOWER_KEEP_THRESHOLD = 345.0
-UPPER_KEEP_THRESHOLD = 425.0
+UPPER_KEEP_THRESHOLD = 470.0
 
 robot_rope_hsv_range = {
     "07": {
@@ -23,8 +23,10 @@ robot_rope_hsv_range = {
         "upper": np.array([146, 126, 255]),
     },
     "11": {
-        "lower": np.array([95, 21, 40]),
-        "upper": np.array([146, 126, 255]),
+        "lower": np.array([112, 21, 41]),
+        "upper": np.array([166, 115, 255]),
+        "lower2": np.array([0, 21, 40]),
+        "upper2": np.array([12, 126, 255]),
     },
     "14": {
         "lower": np.array([102, 24, 65]),
@@ -82,9 +84,16 @@ class RopeSegmentationUtil:
 
     def segment_rope_unfiltered(self, img):
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lower_bound = robot_rope_hsv_range[self.robot_id]["lower"]
-        upper_bound = robot_rope_hsv_range[self.robot_id]["upper"]
+        hsv_range = robot_rope_hsv_range[self.robot_id]
+        lower_bound = hsv_range["lower"]
+        upper_bound = hsv_range["upper"]
         mask = cv2.inRange(img_hsv, lower_bound, upper_bound)
+
+        if "lower2" in hsv_range and "upper2" in hsv_range:
+            lower_bound_2 = hsv_range["lower2"]
+            upper_bound_2 = hsv_range["upper2"]
+            mask_2 = cv2.inRange(img_hsv, lower_bound_2, upper_bound_2)
+            mask = cv2.bitwise_or(mask, mask_2)
 
         return mask
 
@@ -720,7 +729,7 @@ class RopeSegmentationUtil:
             closest_length = self._compute_component_length(graph, closest_comp)
             bridge_length = closest_dist  # Distance between the two endpoints
             combined_length = main_length + closest_length + bridge_length
-            max_rope_length = 420.0
+            max_rope_length = UPPER_KEEP_THRESHOLD
             
             if combined_length > max_rope_length:
                 for node_id in list(closest_comp):
