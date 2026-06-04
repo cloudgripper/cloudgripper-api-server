@@ -99,6 +99,12 @@ class Robot():
     def rotate(self, angle):
         command_val = 180 - angle
         self.write_to_teensy('R'+str(command_val) + '\n')
+
+    def step_action(self, x, y, z, rotation, grip):
+        self.move_to(x, y)
+        self.grip_up_down(z)
+        self.rotate(rotation)
+        self.grip_open_close(grip)
         
     def step_right(self):
         # self.x_position += self.nudge

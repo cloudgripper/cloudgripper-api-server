@@ -24,6 +24,7 @@ from resources.get_image_top import GetImageTop
 from resources.get_all_states import GetAllStates
 from resources.calibrate import Calibrate
 from resources.get_state import GetState
+from resources.step_action import StepAction
 from resources.register import Register
 from resources.login import Login
 from resources.streaming_output import StreamingOutput
@@ -99,7 +100,7 @@ api.add_resource(GetImageBase, '/api/v1.1/robot/getImageBase', resource_class_kw
 api.add_resource(GetImageTop, '/api/v1.1/robot/getImageTop', resource_class_kwargs={'robot': robot})
 api.add_resource(GetAllStates, '/api/v1.1/robot/getAllStates', resource_class_kwargs={'robot': robot})
 api.add_resource(GetState, '/api/v1.1/robot/getState',resource_class_kwargs={'robot': robot})
+api.add_resource(StepAction, '/api/v1.1/robot/step/<string:x>/<string:y>/<string:z>/<string:rotation>/<string:grip>',resource_class_kwargs={'robot': robot})
 
 if __name__=="__main__":
     app.run(host='0.0.0.0', port=5000)
-
