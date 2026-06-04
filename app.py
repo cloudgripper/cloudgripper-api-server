@@ -29,6 +29,8 @@ from resources.register import Register
 from resources.login import Login
 from resources.streaming_output import StreamingOutput
 from resources.video_capture import VideoCapture
+from flask_sock import Sock
+from resources.websocket_handler import register as register_websocket
 
 # Making a Connection with MongoClient
 mongoClientUsername = os.environ['MONGO_CLIENT_USERNAME']
@@ -77,12 +79,14 @@ robot = Robot(teensy, camera_base, camera_top, limits)
 # Flask object
 app = Flask(__name__)
 api = Api(app)
+sock = Sock(app)
 #  JWT manager
 jwt = JWTManager(app)
 # JWT Config
 app.config["JWT_SECRET_KEY"] = os.environ['JWT_SECRET_KEY']
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False
 app.config['PROPAGATE_EXCEPTIONS'] = True
+app.config['SOCK_SERVER_OPTIONS'] = {'max_message_size': 16 * 1024 * 1024}
 
 
 api.add_resource(Login, '/api/v1.1/robot/login', resource_class_kwargs={'users': users, 'app':app})
@@ -101,6 +105,7 @@ api.add_resource(GetImageTop, '/api/v1.1/robot/getImageTop', resource_class_kwar
 api.add_resource(GetAllStates, '/api/v1.1/robot/getAllStates', resource_class_kwargs={'robot': robot})
 api.add_resource(GetState, '/api/v1.1/robot/getState',resource_class_kwargs={'robot': robot})
 api.add_resource(StepAction, '/api/v1.1/robot/step/<string:x>/<string:y>/<string:z>/<string:rotation>/<string:grip>',resource_class_kwargs={'robot': robot})
+register_websocket(sock, robot, app)
 
 if __name__=="__main__":
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, threaded=True)

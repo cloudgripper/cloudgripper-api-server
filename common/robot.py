@@ -144,14 +144,31 @@ class Robot():
         frame_time = time.time()
         return True, frame, frame_time
 
+    def get_jpeg_from_base(self):
+        jpeg_bytes, frame_time = self.camera_base.read_jpeg()
+        if jpeg_bytes is None:
+            self.camera_base.release()
+            try:
+                self.camera_base = VideoCapture("/dev/camdown0")
+            except Exception as e:
+                print(f"Cannot open camera on base")
+            return False, None, None
+        return True, jpeg_bytes, frame_time
+
     def get_image_from_top(self):
         try:
-            with self.camera_top.condition:
-                self.camera_top.condition.wait()
-                frame = self.camera_top.frame
-            frame_time = time.time()
-            ret = True
-            return ret, frame, frame_time
+            initial_seq = self.camera_top.frame_seq
+            deadline = time.time() + 2.0
+            while time.time() < deadline:
+                if self.camera_top.frame_seq != initial_seq:
+                    frame = self.camera_top.frame
+                    if frame is not None:
+                        return True, frame, time.time()
+                time.sleep(0.015)
+            frame = self.camera_top.frame
+            if frame is not None:
+                return True, frame, time.time()
+            return False, None, None
         except Exception as e:
             print(f"Failed to get image from top camera: {e}")
             return False, None, None  

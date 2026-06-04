@@ -13,25 +13,40 @@ class VideoCapture:
 
         self.lock = threading.Lock()
         self.stopped = False
+        self._frame = None
+        self._jpeg_buffer = None
+        self._frame_time = None
         self.t = threading.Thread(target=self._reader)
         self.t.daemon = True
         self.t.start()
 
     def _reader(self):
         while not self.stopped:
-            with self.lock:
-                ret = self.cap.grab()
-                if not ret:
-                    self.stopped = True
-                    break
+            ret = self.cap.grab()
+            if not ret:
+                self.stopped = True
+                break
+            ret, frame = self.cap.retrieve()
+            if ret:
+                _, jpeg_buf = cv2.imencode('.jpg', frame)
+                ts = time.time()
+                with self.lock:
+                    self._frame = frame
+                    self._jpeg_buffer = jpeg_buf
+                    self._frame_time = ts
             time.sleep(1/35)
 
     def read(self):
         with self.lock:
-            if self.stopped:
+            if self.stopped or self._frame is None:
                 return None
-            ret, frame = self.cap.retrieve()
-            return frame if ret else None
+            return self._frame
+
+    def read_jpeg(self):
+        with self.lock:
+            if self.stopped or self._jpeg_buffer is None:
+                return None, None
+            return self._jpeg_buffer.tobytes(), self._frame_time
 
     def release(self):
         self.stopped = True
